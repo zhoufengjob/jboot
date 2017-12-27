@@ -124,9 +124,17 @@ public class ClassScanner {
         excludeJars.add("zkclient-");
         excludeJars.add("okhttp-");
         excludeJars.add("okio-");
-        excludeJars.add("zubs-");
+        excludeJars.add("zbus-");
+        excludeJars.add("hessian-");
         excludeJars.add("groovy-");
         excludeJars.add("snakeyaml-");
+        excludeJars.add("kryo-");
+        excludeJars.add("reflectasm-");
+        excludeJars.add("asm-");
+        excludeJars.add("minlog-");
+        excludeJars.add("swagger-");
+        excludeJars.add("validation-api-");
+        excludeJars.add("checker-compat-qual-");
     }
 
     private static final Set<String> excludeJarPackages = new HashSet<>();
@@ -230,7 +238,6 @@ public class ClassScanner {
 
             JarFile jarFile = null;
             try {
-                path = URLDecoder.decode(path, Const.DEFAULT_ENCODING);
                 jarFile = new JarFile(path);
                 Enumeration<JarEntry> entries = jarFile.entries();
                 while (entries.hasMoreElements()) {
@@ -304,6 +311,7 @@ public class ClassScanner {
                 String JAVA_HOME = new File(System.getProperty("java.home"), "..").getCanonicalPath();
                 for (URL url : urLs) {
                     String path = url.getPath();
+                    path = URLDecoder.decode(path, Const.DEFAULT_ENCODING);
 
                     // path : /d:/xxx
                     if (path.startsWith("/") && path.indexOf(":") == 2) {

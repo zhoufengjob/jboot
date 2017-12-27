@@ -16,16 +16,23 @@
 package io.jboot.web.session;
 
 import io.jboot.Jboot;
+import io.jboot.core.cache.JbootCacheConfig;
+import io.jboot.utils.RequestUtils;
 
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpSession;
+import javax.servlet.http.Part;
+import java.io.IOException;
+import java.util.Collection;
 
 
 public class JbootServletRequestWrapper extends HttpServletRequestWrapper {
 
-    HttpServletRequest originHttpServletRequest;
-    HttpSession httpSession;
+    private HttpServletRequest originHttpServletRequest;
+    private HttpSession httpSession;
+
 
     public JbootServletRequestWrapper(HttpServletRequest request) {
         super(request);
@@ -44,17 +51,34 @@ public class JbootServletRequestWrapper extends HttpServletRequestWrapper {
 
         if (httpSession == null) {
 
-            if (Jboot.me().getCache().isNoneCache()) {
-                httpSession = new JbootDefaultSessionWapper();
-            } else {
-                httpSession = new JbootCacheSessionWapper();
+            JbootCacheConfig cacheConfig = Jboot.config(JbootCacheConfig.class);
+            
+            switch (cacheConfig.getType()) {
+                case JbootCacheConfig.TYPE_REDIS:
+                case JbootCacheConfig.TYPE_EHREDIS:
+                    httpSession = new JbootCacheSessionWapper();
+                    break;
+                case JbootCacheConfig.TYPE_EHCACHE:
+                case JbootCacheConfig.TYPE_NONE_CACHE:
+                    httpSession = new JbootDefaultSessionWapper();
+                    break;
+                default:
+                    httpSession = new JbootDefaultSessionWapper();
+                    break;
+
             }
         }
 
         return httpSession;
-
-
     }
 
+
+    @Override
+    public Collection<Part> getParts() throws IOException, ServletException {
+        if (!RequestUtils.isMultipartRequest(this)) {
+            return null;
+        }
+        return super.getParts();
+    }
 
 }

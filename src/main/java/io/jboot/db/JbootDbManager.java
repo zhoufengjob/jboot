@@ -20,10 +20,10 @@ import com.jfinal.plugin.activerecord.ActiveRecordPlugin;
 import com.jfinal.plugin.activerecord.Model;
 import io.jboot.Jboot;
 import io.jboot.db.datasource.DataSourceBuilder;
-import io.jboot.db.datasource.DatasourceConfig;
-import io.jboot.db.datasource.DatasourceConfigManager;
+import io.jboot.db.datasource.DataSourceConfig;
+import io.jboot.db.datasource.DataSourceConfigManager;
 import io.jboot.db.dialect.*;
-import io.jboot.exception.JbootException;
+import io.jboot.exception.JbootIllegalConfigException;
 import io.jboot.utils.ArrayUtils;
 import io.jboot.utils.ClassKits;
 import io.jboot.utils.StringUtils;
@@ -51,21 +51,23 @@ public class JbootDbManager {
 
     public JbootDbManager() {
 
-        // 所有的数据源
-        Map<String, DatasourceConfig> datasourceConfigs = DatasourceConfigManager.me().getDatasourceConfigs();
+        // 所有的数据源，包含了分库数据源的子数据源
+        Map<String, DataSourceConfig> allDatasourceConfigs = DataSourceConfigManager.me().getDatasourceConfigs();
 
         // 分库的数据源，一个数据源包含了多个数据源。
-        Map<String, DatasourceConfig> shardingDatasourceConfigs = DatasourceConfigManager.me().getShardingDatasourceConfigs();
+        Map<String, DataSourceConfig> shardingDatasourceConfigs = DataSourceConfigManager.me().getShardingDatasourceConfigs();
 
         if (shardingDatasourceConfigs != null && shardingDatasourceConfigs.size() > 0) {
-            for (Map.Entry<String, DatasourceConfig> entry : shardingDatasourceConfigs.entrySet()) {
-                String databaseConfig = entry.getValue().getShardingDatabase();
-                if (StringUtils.isBlank(databaseConfig)) {
+            for (Map.Entry<String, DataSourceConfig> entry : shardingDatasourceConfigs.entrySet()) {
+
+                //子数据源的配置
+                String shardingDatabase = entry.getValue().getShardingDatabase();
+                if (StringUtils.isBlank(shardingDatabase)) {
                     continue;
                 }
-                Set<String> databases = StringUtils.splitToSet(databaseConfig, ",");
+                Set<String> databases = StringUtils.splitToSet(shardingDatabase, ",");
                 for (String database : databases) {
-                    DatasourceConfig datasourceConfig = datasourceConfigs.remove(database);
+                    DataSourceConfig datasourceConfig = allDatasourceConfigs.remove(database);
                     if (datasourceConfig == null) {
                         throw new NullPointerException("has no datasource config named " + database + ",plase check your sharding database config");
                     }
@@ -74,20 +76,20 @@ public class JbootDbManager {
             }
         }
 
-        //所有数据源，包含了分库的和未分库的
-        Map<String, DatasourceConfig> allDatasourceConfigs = new HashMap<>();
-        if (datasourceConfigs != null) {
-            allDatasourceConfigs.putAll(datasourceConfigs);
+        //合并后的数据源，包含了分库分表的数据源和正常数据源
+        Map<String, DataSourceConfig> mergeDatasourceConfigs = new HashMap<>();
+        if (allDatasourceConfigs != null) {
+            mergeDatasourceConfigs.putAll(allDatasourceConfigs);
         }
 
         if (shardingDatasourceConfigs != null) {
-            allDatasourceConfigs.putAll(shardingDatasourceConfigs);
+            mergeDatasourceConfigs.putAll(shardingDatasourceConfigs);
         }
 
 
-        for (Map.Entry<String, DatasourceConfig> entry : allDatasourceConfigs.entrySet()) {
+        for (Map.Entry<String, DataSourceConfig> entry : mergeDatasourceConfigs.entrySet()) {
 
-            DatasourceConfig datasourceConfig = entry.getValue();
+            DataSourceConfig datasourceConfig = entry.getValue();
 
             if (datasourceConfig.isConfigOk()) {
 
@@ -110,15 +112,18 @@ public class JbootDbManager {
      * @param datasourceConfig
      * @param activeRecordPlugin
      */
-    private void configSqlTemplate(DatasourceConfig datasourceConfig, ActiveRecordPlugin activeRecordPlugin) {
+    private void configSqlTemplate(DataSourceConfig datasourceConfig, ActiveRecordPlugin activeRecordPlugin) {
         String sqlTemplatePath = datasourceConfig.getSqlTemplatePath();
-        if (sqlTemplatePath != null) {
+        if (StringUtils.isNotBlank(sqlTemplatePath)) {
             if (sqlTemplatePath.startsWith("/")) {
                 activeRecordPlugin.setBaseSqlTemplatePath(datasourceConfig.getSqlTemplatePath());
             } else {
                 activeRecordPlugin.setBaseSqlTemplatePath(PathKit.getRootClassPath() + "/" + datasourceConfig.getSqlTemplatePath());
             }
+        } else {
+            activeRecordPlugin.setBaseSqlTemplatePath(PathKit.getRootClassPath());
         }
+
 
         String sqlTemplateString = datasourceConfig.getSqlTemplate();
         if (sqlTemplateString != null) {
@@ -135,28 +140,28 @@ public class JbootDbManager {
      * @param activeRecordPlugin
      * @param datasourceConfig
      */
-    private void configDialect(ActiveRecordPlugin activeRecordPlugin, DatasourceConfig datasourceConfig) {
+    private void configDialect(ActiveRecordPlugin activeRecordPlugin, DataSourceConfig datasourceConfig) {
         switch (datasourceConfig.getType()) {
-            case DatasourceConfig.TYPE_MYSQL:
+            case DataSourceConfig.TYPE_MYSQL:
                 activeRecordPlugin.setDialect(new JbootMysqlDialect());
                 break;
-            case DatasourceConfig.TYPE_ORACLE:
+            case DataSourceConfig.TYPE_ORACLE:
                 activeRecordPlugin.setDialect(new JbootOracleDialect());
                 break;
-            case DatasourceConfig.TYPE_SQLSERVER:
+            case DataSourceConfig.TYPE_SQLSERVER:
                 activeRecordPlugin.setDialect(new JbootSqlServerDialect());
                 break;
-            case DatasourceConfig.TYPE_SQLITE:
+            case DataSourceConfig.TYPE_SQLITE:
                 activeRecordPlugin.setDialect(new JbootSqlite3Dialect());
                 break;
-            case DatasourceConfig.TYPE_ANSISQL:
+            case DataSourceConfig.TYPE_ANSISQL:
                 activeRecordPlugin.setDialect(new JbootAnsiSqlDialect());
                 break;
-            case DatasourceConfig.TYPE_POSTGRESQL:
+            case DataSourceConfig.TYPE_POSTGRESQL:
                 activeRecordPlugin.setDialect(new JbootPostgreSqlDialect());
                 break;
             default:
-                throw new JbootException("only support datasource type : mysql，orcale，sqlserver，sqlite，ansisql，postgresql");
+                throw new JbootIllegalConfigException("only support datasource type : mysql、orcale、sqlserver、sqlite、ansisql and postgresql, please check your jboot.properties. ");
         }
     }
 
@@ -167,7 +172,7 @@ public class JbootDbManager {
      * @param config
      * @return
      */
-    private ActiveRecordPlugin createRecordPlugin(DatasourceConfig config) {
+    private ActiveRecordPlugin createRecordPlugin(DataSourceConfig config) {
 
         String configName = config.getName();
         DataSource dataSource = new DataSourceBuilder(config).build();

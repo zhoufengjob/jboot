@@ -15,6 +15,7 @@
  */
 package io.jboot.server.listener;
 
+import com.google.inject.Binder;
 import com.jfinal.config.*;
 import com.jfinal.log.Log;
 import com.jfinal.template.Engine;
@@ -53,7 +54,7 @@ public class JbootAppListenerManager implements JbootAppListener {
                 continue;
             }
 
-            JbootAppListener listener = ClassKits.newInstance(clazz);
+            JbootAppListener listener = ClassKits.newInstance(clazz, false);
             if (listener != null) {
                 listeners.add(listener);
             }
@@ -176,6 +177,17 @@ public class JbootAppListenerManager implements JbootAppListener {
         for (JbootAppListener listener : listeners) {
             try {
                 listener.onAppStartBefore(jbootServer);
+            } catch (Throwable ex) {
+                log.error(ex.toString(), ex);
+            }
+        }
+    }
+
+    @Override
+    public void onGuiceConfigure(Binder binder) {
+        for (JbootAppListener listener : listeners) {
+            try {
+                listener.onGuiceConfigure(binder);
             } catch (Throwable ex) {
                 log.error(ex.toString(), ex);
             }

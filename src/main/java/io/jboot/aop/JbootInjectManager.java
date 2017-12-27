@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  * <p>
- *  http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -44,11 +44,12 @@ import io.jboot.core.cache.annotation.CacheEvict;
 import io.jboot.core.cache.annotation.CachePut;
 import io.jboot.core.cache.annotation.Cacheable;
 import io.jboot.core.rpc.annotation.JbootrpcService;
+import io.jboot.server.listener.JbootAppListenerManager;
 import io.jboot.utils.ClassScanner;
 
 import java.io.Serializable;
 import java.lang.reflect.Field;
-import java.util.List;
+import java.util.*;
 
 /**
  * Inject管理器
@@ -114,6 +115,9 @@ public class JbootInjectManager implements com.google.inject.Module, TypeListene
          * Bean 注解
          */
         beanBind(binder);
+
+        //自定义aop configure
+        JbootAppListenerManager.me().onGuiceConfigure(binder);
     }
 
     /**
@@ -122,6 +126,7 @@ public class JbootInjectManager implements com.google.inject.Module, TypeListene
      * @param binder
      */
     private void beanBind(Binder binder) {
+
         List<Class> classes = ClassScanner.scanClassByAnnotation(Bean.class, true);
         for (Class beanClass : classes) {
             Class<?>[] interfaceClasses = beanClass.getInterfaces();

@@ -35,13 +35,11 @@ import java.util.List;
 
 
 public class JbootrpcManager {
-    private static JbootrpcManager manager;
+
+    private static JbootrpcManager manager = new JbootrpcManager();
 
 
     public static JbootrpcManager me() {
-        if (manager == null) {
-            manager = ClassKits.singleton(JbootrpcManager.class);
-        }
         return manager;
     }
 
@@ -114,25 +112,25 @@ public class JbootrpcManager {
         }
     }
 
-    private JbootrpcHystrixFallbackFactory fallbackFactory = null;
+    private JbootrpcHystrixFallbackListener fallbackListener = null;
 
-    public JbootrpcHystrixFallbackFactory getHystrixFallbackFactory() {
+    public JbootrpcHystrixFallbackListener getHystrixFallbackListener() {
 
-        if (fallbackFactory != null) {
-            return fallbackFactory;
+        if (fallbackListener != null) {
+            return fallbackListener;
         }
 
 
-        if (!StringUtils.isBlank(config.getHystrixFallbackFactory())) {
-            fallbackFactory = ClassKits.newInstance(config.getHystrixFallbackFactory());
+        if (!StringUtils.isBlank(config.getHystrixFallbackListener())) {
+            fallbackListener = ClassKits.newInstance(config.getHystrixFallbackListener());
 
         }
 
-        if (fallbackFactory == null) {
-            fallbackFactory = new JbootrpcHystrixFallbackFactoryDefault();
+        if (fallbackListener == null) {
+            fallbackListener = new JbootrpcHystrixFallbackListenerDefault();
         }
 
-        return fallbackFactory;
+        return fallbackListener;
     }
 
 }
